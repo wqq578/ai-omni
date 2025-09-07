@@ -1,0 +1,76 @@
+volumes:
+    langgraph-data:
+        driver: local
+
+services:
+    agent-chat-ui:  
+      image: chat-ui 
+      ports:  
+        - "3000:3000"  
+      environment:  
+        - NEXT_PUBLIC_ASSISTANT_ID=agent  
+        - LANGGRAPH_API_URL=http://10.15.200.45:8123
+        - NEXT_PUBLIC_API_URL=https://your-domain.com/api  
+        - LANGSMITH_API_KEY=
+    #langgraph-debugger:  
+    #  image: langchain/langgraph-debugger  
+    #  restart: on-failure  
+    #  depends_on:  
+    #    langgraph-postgres:  
+    #        condition: service_healthy  
+    #  ports:  
+    #    - "8001:3968"  
+    #  environment:  
+    #    VITE_STUDIO_LOCAL_GRAPH_URL: http://127.0.0.1:8000
+    langgraph-redis:
+        image: redis:6
+        healthcheck:
+            test: redis-cli ping
+            interval: 5s
+            timeout: 1s
+            retries: 5
+
+    langgraph-postgres:
+        image: pgvector/pgvector:pg16
+        ports:
+            - "5433:5432"
+        environment:
+            POSTGRES_DB: postgres
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: postgres
+        command:
+            - postgres
+            - -c
+            - shared_preload_libraries=vector
+        volumes:
+            - langgraph-data:/var/lib/postgresql/data
+        healthcheck:
+            test: pg_isready -U postgres
+            start_period: 10s
+            timeout: 1s
+            retries: 5
+            interval: 60s
+            start_interval: 1s
+
+    langgraph-api:
+        image: langgraph-api:0.0.1 
+        ports:
+            - "8123:8000"
+        depends_on:
+            langgraph-redis:
+                condition: service_healthy
+            langgraph-postgres:
+                condition: service_healthy
+        environment:
+            REDIS_URI: redis://langgraph-redis:6379
+            POSTGRES_URI: postgres://postgres:postgres@langgraph-postgres:5432/postgres?sslmode=disable
+        healthcheck:
+            test: python /api/healthcheck.py
+            interval: 60s
+            start_interval: 1s
+            start_period: 10s
+        env_file:
+            - .env
+        #build:
+        #    context: .
+        #    dockerfile: Dockerfile
