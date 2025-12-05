@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jupyter-dcu
+  namespace: ubuntu
+  labels:
+    app: jupyter-dcu
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jupyter-dcu
+  template:
+    metadata:
+      labels:
+        app: jupyter-dcu
+    spec:
+      containers:
+        - name: jupyter-dcu
+          # image.sourcefind.cn:5000/dcu/admin/base/jupyterlab-pytorch:2.3.0-ubuntu22.04-dtk24.04.2-py3.11
+          #image: image.ac.com:5000/dcu/admin/base/jupyterlab-pytorch:2.3.0-ubuntu22.04-dtk24.04.2-py3.11
+          #image: image.sourcefind.cn:5000/dcu/admin/base/jupyterlab-pytorch:2.4.1-ubuntu22.04-dtk25.04-py3.10-devel
+          image: image.ac.com:5000/dcu/admin/base/jupyterlab-pytorch:2.4.1-ubuntu22.04-dtk25.04-py3.10-devel
+          command:
+            - /opt/conda/bin/jupyter
+            - lab
+            - --allow-root
+            - --ip=0.0.0.0
+            - --port=8888
+            - --NotebookApp.token=wqq578
+          ports:
+            - containerPort: 8888
+          env:
+            - name: http_proxy
+              value: http://10.15.100.43:3120
+            - name: https_proxy
+              value: http://10.15.100.43:3120
+            - name: no_proxy
+              value: localhost,127.0.0.1,0.0.0.0,localaddres
+          resources:
+            requests:
+              # hygon.com/dcucores: "50"
+              # hygon.com/dcumem: "3200"
+              # hygon.com/dcunum: "1"
+              hygon.com/dcu: "1"
+            limits:
+              hygon.com/dcu: "1"
+              # hygon.com/dcucores: "50"
+              # hygon.com/dcumem: "3200"
+              # hygon.com/dcunum: "1"
+          volumeMounts:
+            - mountPath: /workspace
+              name: notebook-storage
+            - name: hyhal-volume
+              mountPath: /opt/hyha
+      volumes:
+        - name: hyhal-volume
+          hostPath:
+            path: /opt/hyhal
+        - name: notebook-storage
+          hostPath:
+            path: /public/ubuntu/k8s-data/home/jovyan
+            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jupyter-dcu
+  namespace: ubuntu
+spec:
+  type: NodePort
+  ports:
+    - port: 8888
+      targetPort: 8888
+      nodePort: 32080
+  selector:
+    app: jupyter-dcu

@@ -1,0 +1,12 @@
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+.env
+.env.local
+*.log
+target/
+build/
+dist/

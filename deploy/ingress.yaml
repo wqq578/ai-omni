@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: web1
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/component: web1
+spec:
+  clusterIP: None
+  clusterIPs:
+    - None
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+    - IPv4
+    - IPv6
+  ipFamilyPolicy: RequireDualStack
+  ports:
+    - name: ragflow
+      port: 8081
+      protocol: TCP
+      targetPort: 8081
+  sessionAffinity: None
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: web1
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/component: web1
+subsets:
+  - addresses:
+      - ip: 10.15.200.45
+    ports:
+      - name: ragflow
+        port: 8081
+        protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web1
+  namespace: monitoring
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: ragflow.sugon.fun
+      http:
+        paths:
+          - backend:
+              service:
+                name: web1
+                port:
+                  number: 8081
+            path: /
+            pathType: Prefix

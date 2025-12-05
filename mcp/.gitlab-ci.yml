@@ -1,0 +1,69 @@
+default:
+  image: image.sourcefind.cn:5000/k8s/docker:24.0.5
+  services:
+    - name: image.sourcefind.cn:5000/k8s/docker:24.0.5-dind
+      alias: docker
+  before_script:
+    - sleep 20
+    - docker info
+  tags:
+    - ai-runner
+
+stages:
+  - build
+  - deploy
+
+variables:
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_TLS_CERTDIR: ""
+code-exec-build:
+  stage: build
+  script: |
+    # 设置默认的镜像tag
+    FULL_IMAGE_TAG="${AI_TOOL_VERSION}"
+    # 如果需要包含commit信息，则添加commit短ID到tag
+    if [ "$INCLUDE_COMMIT_IN_TAG" = "true" ]; then 
+      FULL_IMAGE_TAG="${AI_TOOL_VERSION}-${CI_COMMIT_SHORT_SHA}"
+    fi
+    echo "Building image with tag: ${FULL_IMAGE_TAG}"
+    docker build -t ${IMAGE_REGISTRY}/k8s/sag-aitool-code-exec:${FULL_IMAGE_TAG} -f code-exec/Dockerfile .
+    docker login -u ${HARBOR_USERNAME} -p ${HARBOR_PASSWORD} ${IMAGE_REGISTRY}
+    docker push ${IMAGE_REGISTRY}/k8s/sag-aitool-code-exec:${FULL_IMAGE_TAG}
+  only:
+    - wangqq/dev
+  tags:
+    - ai-runner
+
+kubectl-deploy:
+  stage: deploy
+  image: 
+    name: bitnami/kubectl:latest
+    #entrypoint: [""]
+  before_script:
+    - echo "Setting up kubectl configuration"
+    # Configure kubectl with your cluster details
+    - mkdir -p ~/.kube
+    - echo "${KUBE_CONFIG_DATA}" | base64 -d > ~/.kube/config
+    - chmod 600 ~/.kube/config
+    - kubectl cluster-info
+  script:
+    - echo "Running kubectl commands"
+    # Execute the provided script
+    - |
+      # 定义镜像版本后缀变量
+      COMMIT_SHA="${CI_COMMIT_SHORT_SHA}"
+      
+      # 获取所有 deployment 名称
+      deployments=$(kubectl get deploy -n sag-aitool-code-exec-dev26 -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.template.spec.containers[*].name}{"\n"}{end}' | \
+        grep "tool-default" | awk '{print $1}')
+      for deploy in $deployments; do
+          echo "Updating deployment $deploy"
+          #kubectl set image deployment/$deploy tool-default=image.sourcefind.cn:5000/k8s/sag-aitool-code-exec:v1.0.4-$COMMIT_SHA -n sag-aitool-code-exec-dev26
+      done
+  environment:
+    name: production
+  only:
+    - wangqq/dev
+  tags:
+    - ai-runner
+  when: manual

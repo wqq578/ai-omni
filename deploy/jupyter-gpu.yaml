@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jupyter-tensorflow-notebook
+  namespace: ubuntu
+  labels:
+    app: jupyter-notebook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jupyter-notebook
+  template:
+    metadata:
+      labels:
+        app: jupyter-notebook
+    spec:
+      #nodeName: 10.13.1.1
+      #      initContainers:
+      #        - name: copy-site-packages
+      #          image: image.sourcefind.cn:5000/k8s/jupyter/tensorflow-notebook:latest
+      #          command: [ 'sh', '-c', 'cp -r /opt/conda/lib/python3.11/site-packages/* /mnt/host-site-packages/' ]
+      #          volumeMounts:
+      #            - name: conda-site-packages
+      #              mountPath: /mnt/host-site-packages
+      containers:
+        - name: jupyter-tensorflow-notebook
+          #image: image.sourcefind.cn:5000/gpu/admin/base/jupyterlab-pytorch:2.4.1-py3.11-cuda12.1-ubuntu22.04-devel
+          image: image.ac.com:5000/gpu/admin/base/jupyterlab-pytorch:2.7.0-py3.12-cuda11.8-ubuntu22.04-devel
+          #image: image.ac.com:5000/gpu/admin/base/jupyterlab-pytorch:2.4.1-py3.11-cuda12.1-ubuntu22.04-devel
+          #image: image.ac.com:5000/dcu/admin/base/jupyterlab-pytorch:2.3.0-ubuntu22.04-dtk24.04.2-py3.11
+          #image: image.ac.com:5000/gpu/admin/base/pytorch:1.0-py3.6-CUDA10.0
+          #image: image.ac.com:5000/gpu/admin/base/jupyterlab-pytorch:1.10.0-py3.8-cuda11.3-ubuntu20.04
+          ##image: image.ac.com:5000/gpu/admin/base/jupyterlab-pytorch:1.13.1-py3.8-cuda11.7-ubuntu20.04-devel-1.0.0
+          #docker pull image.sourcefind.cn:5000/gpu/admin/base/jupyterlab-pytorch:1.13.1-py3.8-cuda11.7-ubuntu20.04-devel
+          command:
+            - /opt/conda/bin/jupyter
+            - lab
+            - --allow-root
+            - --ip=0.0.0.0
+            - --port=8888
+            - --NotebookApp.token=wqq578
+          ports:
+            - containerPort: 8888
+            - containerPort: 6006
+          env:
+            - name: GPU_CORE_UTILIZATION_POLICY
+              value: force
+            - name: http_proxy
+              value: http://10.15.100.43:3120
+            - name: https_proxy
+              value: http://10.15.100.43:3120
+            - name: no_proxy
+              value: localhost,127.0.0.1,0.0.0.0,localaddres
+          resources:
+            requests:
+#              nvidia.com/gpucores: "50"
+#              nvidia.com/gpumem: "4000"
+#              nvidia.com/vgpu: "2"
+              nvidia.com/gpu: "1"
+              # cpu: "16"
+              # memory: 32Gi
+            limits:
+#              nvidia.com/gpucores: "50"
+#              nvidia.com/gpumem: "4000"
+#              nvidia.com/vgpu: "2"
+              nvidia.com/gpu: "1"
+              # cpu: "16"
+              # memory: 32Gi
+          volumeMounts:
+            - mountPath: /workspace
+              name: notebook-storage
+      #            - mountPath: /opt/conda/lib/python3.11/site-packages
+      #              name: conda-site-packages
+      #          env:
+      #            - name: JUPYTER_ENABLE_LAB
+      #              value: "yes"
+      ##            - name: NB_USER
+      ##              value: root
+      #            - name: CHOWN_HOME
+      #              value: "yes"
+      #            - name: CHOWN_HOME_OPTS
+      #              value: -R
+      volumes:
+        - name: notebook-storage
+          hostPath:
+            path: /public/ubuntu/k8s-data/home/jovyan
+            type: DirectoryOrCreate
+      #        - name: conda-site-packages
+      #          hostPath:
+      #            path: /public/ubuntu/k8s-data/site-packages
+      #            type: DirectoryOrCreate
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jupyter-notebook-service
+  namespace: ubuntu
+spec:
+  type: NodePort
+  ports:
+    - port: 8888
+      targetPort: 8888
+      nodePort: 32081
+      name: jupyter-notebook
+    - port: 6006
+      targetPort: 6006
+      nodePort: 32082
+      name: tensorboard
+  selector:
+    app: jupyter-notebook
+

@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ubuntu-deployment
+  namespace: ubuntu
+  labels:
+    app: ubuntu
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ubuntu
+  template:
+    metadata:
+      labels:
+        app: ubuntu
+    spec:
+      nodeName: 10.15.100.57
+      containers:
+        - name: ubuntu-container
+          #image: image.ac.com:5000/k8s/ubuntu:22.04-0.0.3
+          image: image.ac.com:5000/k8s/ubuntu:22.04-0.0.4
+          #image: image.sourcefind.cn:5000/k8s/ubuntu:22.04-0.0.3
+          #image:  image.ac.com:5000/k8s/ubuntu:18.04-0.0.1
+          ports:
+            - containerPort: 22
+          env:
+            - name: http_proxy
+              value: http://10.15.100.43:3120
+            - name: https_proxy
+              value: http://10.15.100.43:3120
+            - name: no_proxy
+              value: localhost,127.0.0.1,0.0.0.0,localaddres
+#          volumeMounts:
+#            - name: notebook-storage
+#              mountPath: /root/k8s-data/
+          volumeMounts:
+            - name: ks-config
+              mountPath: /root/.kube
+      volumes:
+        - name: ks-config
+          hostPath:
+            path: /root/k8s-data/ubuntu/ks/.kube
+            type: Directory
+#        - name: notebook-storage
+#          hostPath:
+#            path: /public/ubuntu/k8s-data/home/jovyan
+#            type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ubuntu-service
+  namespace: ubuntu
+spec:
+  type: NodePort
+  selector:
+    app: ubuntu
+  ports:
+    - protocol: TCP
+      port: 22
+      targetPort: 22
+      nodePort: 32270

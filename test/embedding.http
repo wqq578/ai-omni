@@ -1,0 +1,19 @@
+###
+POST https://qwen3-embedding-8b.ksai.scnet.cn:58043/v1/embeddings
+Content-Type: application/json
+
+{
+  "model": "/opt/model/Qwen3-Embedding-8B",
+  "input": [
+    "What is the capital of China?",
+    "Explain gravity",
+    "The capital of China is Beijing.",
+    "Gravity is a force that attracts two bodies towards each other. It gives weight to physical objects and is responsible for the movement of planets around the sun."
+  ],
+  "encoding_format": "float",
+  "add_special_tokens": false,
+  "user": "ske_model"
+}
+
+###
+GET https://qwen3-embedding-8b.ksai.scnet.cn:58043/metrics
